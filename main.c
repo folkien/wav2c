@@ -173,9 +173,12 @@ void writeAsCFile(int16_t *leftChannel, int16_t *rightChannel,  sWavHeader * hea
 
   /// header
   fprintf(pFile, "#include <stdint.h>\n");
+  fprintf(pFile, "#include <stdio.h>\n");
+  fprintf(pFile, "const uint32_t audioSamplingFrequency = %d;\n",header->SampleRate);
 
   /// printf left Channel
-  fprintf(pFile, "sint16_t leftChannel[] = {\n");
+  fprintf(pFile, "const size_t leftChannelSize = %d;\n",numOfSamples);
+  fprintf(pFile, "const uint16_t leftChannel[] = {\n");
   fprintfChannel(pFile, leftChannel, numOfSamples);
   fprintf(pFile, "};\n");
 

@@ -29,6 +29,16 @@ int32_t highLimit;
 int16_t * leftChannel = NULL;
 int16_t * rightChannel = NULL;
 
+uint16_t DAC_max = 4096;
+uint16_t DAC_shift = 2048;
+
+/// DAC resolution set for C format
+uint16_t ConvertToDACValue(int16_t value)
+{
+  uint32_t tmp = ((value*DAC_max)/highLimit) + DAC_shift;
+  return tmp;
+}
+
 
 void swapEndiannes(uint32_t * value)
 {
@@ -95,7 +105,7 @@ void fprintfChannel(FILE *pFile , int16_t * array, uint32_t size)
 {
   for (uint32_t i = 0; i<size; ++i)
   {
-    fprintf(pFile, "%d,\n",array[i]);
+    fprintf(pFile, "%d, // %d\n",ConvertToDACValue(array[i]), array[i]);
   }
 }
 

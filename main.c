@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <stdint.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -22,8 +24,10 @@ typedef struct {
 } __attribute__((packed)) sWavHeader;
 
 uint32_t numOfSamples = 0;
-uint16_t * leftChannel = NULL;
-uint16_t * rightChannel = NULL;
+int32_t lowLimit;
+int32_t highLimit;
+int16_t * leftChannel = NULL;
+int16_t * rightChannel = NULL;
 
 
 void swapEndiannes(uint32_t * value)
@@ -31,6 +35,12 @@ void swapEndiannes(uint32_t * value)
   uint32_t tmp = *value;
   *value =   ( tmp >> 24) | (tmp << 24) |
              ((tmp >> 8) & 0x0000FF00) | ((tmp<<8) & 0x00FF0000);
+}
+
+void swapEndiannesS16(int16_t * value)
+{
+  uint32_t tmp = *value;
+  *value =   ( tmp >> 8) | (tmp << 8);
 }
 
 void printfU32String(uint32_t array)
@@ -81,25 +91,40 @@ void printfHeader(sWavHeader * header)
   printf("--------------------------------------.\n");
 }
 
-void fprintfChannel(FILE *pFile , uint16_t * array, uint32_t size)
+void fprintfChannel(FILE *pFile , int16_t * array, uint32_t size)
 {
   for (uint32_t i = 0; i<size; ++i)
   {
-    fprintf(pFile, "0x%04x,\n",array[i]);
+    fprintf(pFile, "%d,\n",array[i]);
   }
 }
 
-void fprintfChannelMatlab(FILE *pFile , uint16_t * array, uint32_t size)
+void fprintfChannelMatlab(FILE *pFile , int16_t * array, uint32_t size)
 {
   for (uint32_t i = 0; i<size; ++i)
   {
-    fprintf(pFile, "0x%04x ",array[i]);
+    fprintf(pFile, "%d ",array[i]);
   }
 }
 
 void readWavData(int fileId, sWavHeader * header)
 {
   numOfSamples = header->Subchunk2Size / (header->NumChannels * header->BitsPerSample/8);
+  switch (header->BitsPerSample) {
+    case 8:
+      lowLimit = -128;
+      highLimit = 127;
+      break;
+    case 16:
+      lowLimit = -32768;
+      highLimit = 32767;
+      break;
+    case 32:
+      lowLimit = -2147483648;
+      highLimit = 2147483647;
+      break;
+  }
+
 
   leftChannel = malloc(sizeof(uint16_t) * numOfSamples);
   if (header->NumChannels > 1)
@@ -111,14 +136,27 @@ void readWavData(int fileId, sWavHeader * header)
   for (uint32_t i = 0; i<numOfSamples; ++i)
   {
     read(fileId, &leftChannel[i], sizeof(uint16_t));
+//    swapEndiannesS16(&leftChannel[i]);
+    // check if value was in range
+    if ((leftChannel[i] < lowLimit) || (leftChannel[i] > highLimit))
+    {
+      printf("**value out of range\n");
+    }
+
     if(header->NumChannels > 1)
     {
       read(fileId, &rightChannel[i], sizeof(uint16_t));
+//      swapEndiannesS16(&rightChannel[i]);
+      // check if value was in range
+      if ((rightChannel[i] < lowLimit) || (rightChannel[i] > highLimit))
+      {
+        printf("**value out of range\n");
+      }
     }
   }
 }
 
-void writeAsCFile(uint16_t *leftChannel, uint16_t *rightChannel,  sWavHeader * header)
+void writeAsCFile(int16_t *leftChannel, int16_t *rightChannel,  sWavHeader * header)
 {
   FILE * pFile;
   pFile = fopen("sound.c","w");
@@ -127,7 +165,7 @@ void writeAsCFile(uint16_t *leftChannel, uint16_t *rightChannel,  sWavHeader * h
   fprintf(pFile, "#include <stdint.h>\n");
 
   /// printf left Channel
-  fprintf(pFile, "uint16_t leftChannel[] = {\n");
+  fprintf(pFile, "sint16_t leftChannel[] = {\n");
   fprintfChannel(pFile, leftChannel, numOfSamples);
   fprintf(pFile, "};\n");
 
@@ -141,7 +179,7 @@ void writeAsCFile(uint16_t *leftChannel, uint16_t *rightChannel,  sWavHeader * h
   fclose(pFile);
 }
 
-void writeAsMatlabFile(uint16_t *leftChannel, uint16_t *rightChannel,  sWavHeader * header)
+void writeAsMatlabFile(int16_t *leftChannel, int16_t *rightChannel,  sWavHeader * header)
 {
   FILE * pFile;
   pFile = fopen("sound.m","w");
@@ -160,6 +198,10 @@ void writeAsMatlabFile(uint16_t *leftChannel, uint16_t *rightChannel,  sWavHeade
     fprintf(pFile, "plot(rightChannel);\n");
   }
   fprintf(pFile, "plot(leftChannel);\n");
+  fprintf(pFile, "input(\"Wait for keypress\");\n");
+  fprintf(pFile, "fs = %d;\n",header->SampleRate);
+  fprintf(pFile, "player = audioplayer(leftChannel, fs);\n");
+  fprintf(pFile, "play(player);\n");
   fprintf(pFile, "input(\"Wait for keypress\");\n");
   fclose(pFile);
 

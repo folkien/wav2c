@@ -200,7 +200,8 @@ void writeAsMatlabFile(int16_t *leftChannel, int16_t *rightChannel,  sWavHeader 
   fprintf(pFile, "plot(leftChannel);\n");
   fprintf(pFile, "input(\"Wait for keypress\");\n");
   fprintf(pFile, "fs = %d;\n",header->SampleRate);
-  fprintf(pFile, "player = audioplayer(leftChannel, fs);\n");
+  fprintf(pFile, "scaleFactor = %d;\n",highLimit);
+  fprintf(pFile, "player = audioplayer(leftChannel/scaleFactor, fs);\n");
   fprintf(pFile, "play(player);\n");
   fprintf(pFile, "input(\"Wait for keypress\");\n");
   fclose(pFile);

@@ -4,4 +4,4 @@ clean:
 	rm -rf sound.c
 	rm -rf sound.m
 wav2c: main.c
-	gcc main.c -o wav2c
+	gcc main.c -Wno-address-of-packed-member -o wav2c
